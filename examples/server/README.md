@@ -137,13 +137,16 @@ cd examples/server
 ./setup-websocket.sh
 
 # 2. Build
-cd ../../build
+cd ../../
+mkdir -p build && cd build
 cmake ..
 make whisper-websocket-server
 
 # 3. Run
 ./bin/whisper-websocket-server --model ../models/ggml-base.en.bin --port 8081
 ```
+
+**Linux users:** See [BUILD_LINUX.md](BUILD_LINUX.md) for Linux-specific build instructions and GPU support.
 
 ### Features
 

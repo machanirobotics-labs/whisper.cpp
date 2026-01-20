@@ -45,7 +45,7 @@ examples/arm_neon.h
 examples/whisper.objc/whisper.objc.xcodeproj/xcshareddata
 examples/whisper.objc/whisper.objc.xcodeproj/xcuserdata/
 examples/whisper.objc/whisper.objc.xcodeproj/project.xcworkspace/xcuserdata
-
+examples/server/CMakeFiles
 extra/bench-gg.txt
 
 models/*.mlmodel

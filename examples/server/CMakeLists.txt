@@ -36,11 +36,17 @@ if(EXISTS ${UWEBSOCKETS_DIR} AND EXISTS ${USOCKETS_DIR})
     target_include_directories(usockets PUBLIC ${USOCKETS_DIR}/src)
     target_compile_definitions(usockets PRIVATE LIBUS_USE_OPENSSL)
     
+    # Platform-specific compile definitions
+    if(UNIX AND NOT APPLE)
+        target_compile_definitions(usockets PRIVATE LIBUS_USE_EPOLL)
+    endif()
+    
     find_package(OpenSSL REQUIRED)
     target_link_libraries(usockets PUBLIC OpenSSL::SSL OpenSSL::Crypto)
     
+    # Linux-specific libraries
     if(UNIX AND NOT APPLE)
-        target_link_libraries(usockets PUBLIC pthread)
+        target_link_libraries(usockets PUBLIC pthread dl)
     endif()
     
     # WebSocket streaming server
@@ -63,8 +69,12 @@ if(EXISTS ${UWEBSOCKETS_DIR} AND EXISTS ${USOCKETS_DIR})
         ${CMAKE_THREAD_LIBS_INIT}
     )
     
+    # Platform-specific frameworks and libraries
     if(APPLE)
         target_link_libraries(${TARGET_WS} PRIVATE "-framework CoreFoundation" "-framework Security")
+    elseif(UNIX)
+        # Linux needs dl for dynamic linking
+        target_link_libraries(${TARGET_WS} PRIVATE dl)
     endif()
     
     install(TARGETS ${TARGET_WS} RUNTIME)
