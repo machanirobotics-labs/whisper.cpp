@@ -1,5 +1,12 @@
 # whisper.cpp/examples/server
 
+This directory contains two servers:
+
+1. **HTTP Server** (`whisper-server`) - Simple HTTP server for batch audio file transcription
+2. **WebSocket Server** (`whisper-websocket-server`) - Real-time streaming server for continuous PCM audio
+
+## HTTP Server
+
 Simple http server. WAV Files are passed to the inference model via http requests.
 
 https://github.com/ggerganov/whisper.cpp/assets/1991296/e983ee53-8741-4eb5-9048-afe5e4594b8f
@@ -115,6 +122,58 @@ k6 run bench.js \
 - `TEMPERATURE`: Decoding temperature (default: 0.0)
 - `TEMPERATURE_INC`: Temperature increment (default: 0.2)
 - `RESPONSE_FORMAT`: Response format (default: `json`)
+
+---
+
+## WebSocket Streaming Server
+
+For **real-time audio streaming** from microphone or continuous PCM sources, use the WebSocket server.
+
+### Setup
+
+```bash
+# 1. Download dependencies (uWebSockets)
+cd examples/server
+./setup-websocket.sh
+
+# 2. Build
+cd ../../build
+cmake ..
+make whisper-websocket-server
+
+# 3. Run
+./bin/whisper-websocket-server --model ../models/ggml-base.en.bin --port 8081
+```
+
+### Features
+
+- **Real-time streaming**: Send continuous PCM audio data via WebSocket
+- **Bidirectional**: Receive audio, send back transcriptions instantly
+- **Client-controlled**: Client decides when to send audio chunks
+- **Multiple formats**: Supports float32 and int16 PCM data
+- **Low latency**: High-performance WebSocket implementation
+
+### Usage
+
+Connect to `ws://localhost:8081/` and send binary PCM audio data (16kHz, mono).
+
+See [WEBSOCKET_README.md](WEBSOCKET_README.md) for detailed documentation and client examples.
+
+### Quick Test
+
+```javascript
+const ws = new WebSocket('ws://localhost:8081');
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  if (data.type === 'transcription') {
+    console.log('Transcription:', data.text);
+  }
+};
+
+// Send PCM audio data (binary)
+ws.send(pcmAudioBuffer);
+```
 
 **Note:**
 - The server must be running and accessible at the specified `BASE_URL` and `ENDPOINT`.
