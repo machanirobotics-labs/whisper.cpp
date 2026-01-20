@@ -1,0 +1,440 @@
+asyncapi: 3.0.0
+info:
+  title: Whisper WebSocket Real-time Streaming API
+  version: 1.0.0
+  description: |
+    Real-time speech-to-text transcription API using WebSocket for continuous PCM audio streaming.
+    
+    ## Features
+    - Real-time bidirectional streaming
+    - Supports float32 and int16 PCM audio formats
+    - Client-controlled buffering and flushing
+    - Sliding window processing for context retention
+    - Multiple language support
+    
+    ## Audio Requirements
+    - **Sample Rate**: 16000 Hz (16 kHz)
+    - **Channels**: Mono (1 channel)
+    - **Format**: float32 (recommended) or int16
+    - **Encoding**: Raw PCM, no headers
+    
+  contact:
+    name: Whisper.cpp WebSocket Server
+    url: https://github.com/ggerganov/whisper.cpp
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  production:
+    host: localhost:8081
+    protocol: ws
+    description: Local WebSocket server
+    
+  development:
+    host: 127.0.0.1:8081
+    protocol: ws
+    description: Development server
+
+channels:
+  root:
+    address: /
+    messages:
+      connected:
+        $ref: '#/components/messages/Connected'
+      transcription:
+        $ref: '#/components/messages/Transcription'
+      flushComplete:
+        $ref: '#/components/messages/FlushComplete'
+      configUpdated:
+        $ref: '#/components/messages/ConfigUpdated'
+      resetComplete:
+        $ref: '#/components/messages/ResetComplete'
+      error:
+        $ref: '#/components/messages/Error'
+      audioBinary:
+        $ref: '#/components/messages/AudioBinary'
+      flushCommand:
+        $ref: '#/components/messages/FlushCommand'
+      resetCommand:
+        $ref: '#/components/messages/ResetCommand'
+      configCommand:
+        $ref: '#/components/messages/ConfigCommand'
+
+operations:
+  onConnect:
+    action: receive
+    channel:
+      $ref: '#/channels/root'
+    summary: Connection established
+    description: Sent by server when WebSocket connection is established
+    messages:
+      - $ref: '#/channels/root/messages/connected'
+
+  sendAudio:
+    action: send
+    channel:
+      $ref: '#/channels/root'
+    summary: Send PCM audio data
+    description: Send binary PCM audio chunks for real-time transcription
+    messages:
+      - $ref: '#/channels/root/messages/audioBinary'
+
+  receiveTranscription:
+    action: receive
+    channel:
+      $ref: '#/channels/root'
+    summary: Receive transcription
+    description: Receive real-time transcription results from the server
+    messages:
+      - $ref: '#/channels/root/messages/transcription'
+
+  sendFlush:
+    action: send
+    channel:
+      $ref: '#/channels/root'
+    summary: Flush remaining audio
+    description: Process all remaining audio in buffer immediately
+    messages:
+      - $ref: '#/channels/root/messages/flushCommand'
+
+  receiveFlushComplete:
+    action: receive
+    channel:
+      $ref: '#/channels/root'
+    summary: Flush completed
+    description: Receive final transcription after flush
+    messages:
+      - $ref: '#/channels/root/messages/flushComplete'
+
+  sendReset:
+    action: send
+    channel:
+      $ref: '#/channels/root'
+    summary: Reset stream context
+    description: Clear all buffers and start fresh
+    messages:
+      - $ref: '#/channels/root/messages/resetCommand'
+
+  receiveResetComplete:
+    action: receive
+    channel:
+      $ref: '#/channels/root'
+    summary: Reset completed
+    description: Confirmation that stream has been reset
+    messages:
+      - $ref: '#/channels/root/messages/resetComplete'
+
+  sendConfig:
+    action: send
+    channel:
+      $ref: '#/channels/root'
+    summary: Update configuration
+    description: Update language or other settings
+    messages:
+      - $ref: '#/channels/root/messages/configCommand'
+
+  receiveConfigUpdated:
+    action: receive
+    channel:
+      $ref: '#/channels/root'
+    summary: Configuration updated
+    description: Confirmation that configuration has been updated
+    messages:
+      - $ref: '#/channels/root/messages/configUpdated'
+
+  receiveError:
+    action: receive
+    channel:
+      $ref: '#/channels/root'
+    summary: Error occurred
+    description: Receive error messages from the server
+    messages:
+      - $ref: '#/channels/root/messages/error'
+
+components:
+  messages:
+    Connected:
+      name: Connected
+      title: Connection Welcome Message
+      summary: Server sends this when client connects
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ConnectedPayload'
+      examples:
+        - payload:
+            type: connected
+            user_id: 1
+            message: "Ready to receive PCM audio data"
+            format: "Send binary PCM data: float32 or int16"
+            sample_rate: 16000
+
+    Transcription:
+      name: Transcription
+      title: Real-time Transcription Result
+      summary: Partial transcription sent during streaming
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/TranscriptionPayload'
+      examples:
+        - payload:
+            type: transcription
+            text: "[00:00.000 --> 00:03.000]  Hello, this is a test."
+            user_id: 1
+
+    FlushComplete:
+      name: FlushComplete
+      title: Flush Complete Response
+      summary: Final transcription after flush command
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/FlushCompletePayload'
+      examples:
+        - payload:
+            type: flush_complete
+            text: "final transcription text"
+            user_id: 1
+
+    ConfigUpdated:
+      name: ConfigUpdated
+      title: Configuration Updated
+      summary: Confirmation that configuration was updated
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ConfigUpdatedPayload'
+      examples:
+        - payload:
+            type: config_updated
+            status: ok
+
+    ResetComplete:
+      name: ResetComplete
+      title: Reset Complete
+      summary: Confirmation that stream was reset
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ResetCompletePayload'
+      examples:
+        - payload:
+            type: reset
+            status: ok
+
+    Error:
+      name: Error
+      title: Error Message
+      summary: Error occurred during processing
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ErrorPayload'
+      examples:
+        - payload:
+            type: error
+            message: "Invalid audio data size"
+
+    AudioBinary:
+      name: AudioBinary
+      title: PCM Audio Data
+      summary: Binary PCM audio chunk
+      contentType: application/octet-stream
+      payload:
+        type: string
+        format: binary
+        description: |
+          Raw PCM audio data in one of the following formats:
+          - float32: 4 bytes per sample, values between -1.0 and 1.0
+          - int16: 2 bytes per sample, values between -32768 and 32767
+          
+          The server auto-detects the format based on message size.
+
+    FlushCommand:
+      name: FlushCommand
+      title: Flush Command
+      summary: Request to process remaining audio
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/FlushCommandPayload'
+      examples:
+        - payload:
+            type: flush
+
+    ResetCommand:
+      name: ResetCommand
+      title: Reset Command
+      summary: Request to reset stream context
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ResetCommandPayload'
+      examples:
+        - payload:
+            type: reset
+
+    ConfigCommand:
+      name: ConfigCommand
+      title: Configuration Command
+      summary: Request to update configuration
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ConfigCommandPayload'
+      examples:
+        - payload:
+            type: config
+            language: en
+            translate: false
+
+  schemas:
+    ConnectedPayload:
+      type: object
+      required:
+        - type
+        - user_id
+        - message
+        - format
+        - sample_rate
+      properties:
+        type:
+          type: string
+          const: connected
+          description: Message type identifier
+        user_id:
+          type: integer
+          description: Unique user session ID
+          example: 1
+        message:
+          type: string
+          description: Welcome message
+          example: "Ready to receive PCM audio data"
+        format:
+          type: string
+          description: Supported audio formats
+          example: "Send binary PCM data: float32 or int16"
+        sample_rate:
+          type: integer
+          description: Required sample rate in Hz
+          example: 16000
+
+    TranscriptionPayload:
+      type: object
+      required:
+        - type
+        - text
+        - user_id
+      properties:
+        type:
+          type: string
+          const: transcription
+          description: Message type identifier
+        text:
+          type: string
+          description: Transcribed text with optional timestamps
+          example: "[00:00.000 --> 00:03.000]  Hello, this is a test."
+        user_id:
+          type: integer
+          description: User session ID
+          example: 1
+
+    FlushCompletePayload:
+      type: object
+      required:
+        - type
+        - text
+        - user_id
+      properties:
+        type:
+          type: string
+          const: flush_complete
+          description: Message type identifier
+        text:
+          type: string
+          description: Final transcription text
+          example: "final transcription text"
+        user_id:
+          type: integer
+          description: User session ID
+          example: 1
+
+    ConfigUpdatedPayload:
+      type: object
+      required:
+        - type
+        - status
+      properties:
+        type:
+          type: string
+          const: config_updated
+          description: Message type identifier
+        status:
+          type: string
+          enum: [ok, error]
+          description: Update status
+          example: ok
+
+    ResetCompletePayload:
+      type: object
+      required:
+        - type
+        - status
+      properties:
+        type:
+          type: string
+          const: reset
+          description: Message type identifier
+        status:
+          type: string
+          enum: [ok]
+          description: Reset status
+          example: ok
+
+    ErrorPayload:
+      type: object
+      required:
+        - type
+        - message
+      properties:
+        type:
+          type: string
+          const: error
+          description: Message type identifier
+        message:
+          type: string
+          description: Error description
+          example: "Invalid audio data size"
+
+    FlushCommandPayload:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          const: flush
+          description: Command type
+
+    ResetCommandPayload:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          const: reset
+          description: Command type
+
+    ConfigCommandPayload:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          const: config
+          description: Command type
+        language:
+          type: string
+          description: Language code (ISO 639-1)
+          example: en
+          enum: [en, es, fr, de, it, pt, ru, zh, ja, ko, ar, hi]
+        translate:
+          type: boolean
+          description: Translate to English
+          example: false
+          default: false

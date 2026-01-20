@@ -63,7 +63,10 @@ private:
     
     std::chrono::steady_clock::time_point last_process_time_;
     
+    std::string last_transcription_;
+    
     std::string runInference(const std::vector<float>& audio_data);
+    std::string extractNewText(const std::string& full_text);
 };
 
 struct PerSocketData {

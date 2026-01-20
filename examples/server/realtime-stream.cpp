@@ -81,7 +81,8 @@ std::string RealtimeStreamContext::processIfReady() {
         last_process_time_ = std::chrono::steady_clock::now();
     }
     
-    return runInference(audio_to_process);
+    std::string full_transcription = runInference(audio_to_process);
+    return extractNewText(full_transcription);
 }
 
 std::string RealtimeStreamContext::runInference(const std::vector<float>& audio_data) {
@@ -149,6 +150,59 @@ std::string RealtimeStreamContext::runInference(const std::vector<float>& audio_
     return result;
 }
 
+std::string RealtimeStreamContext::extractNewText(const std::string& full_text) {
+    if (full_text.empty()) {
+        return "";
+    }
+    
+    // Remove timestamps for comparison
+    auto removeTimestamps = [](const std::string& text) -> std::string {
+        std::string result;
+        bool in_timestamp = false;
+        for (char c : text) {
+            if (c == '[') {
+                in_timestamp = true;
+            } else if (c == ']' && in_timestamp) {
+                in_timestamp = false;
+                continue;
+            }
+            if (!in_timestamp) {
+                result += c;
+            }
+        }
+        return result;
+    };
+    
+    std::string current_clean = removeTimestamps(full_text);
+    std::string last_clean = removeTimestamps(last_transcription_);
+    
+    // Trim whitespace
+    auto trim = [](std::string s) {
+        s.erase(0, s.find_first_not_of(" \t\n\r"));
+        s.erase(s.find_last_not_of(" \t\n\r") + 1);
+        return s;
+    };
+    
+    current_clean = trim(current_clean);
+    last_clean = trim(last_clean);
+    
+    // Find new text by checking if current starts with last
+    std::string new_text;
+    if (current_clean.size() > last_clean.size() && 
+        current_clean.substr(0, last_clean.size()) == last_clean) {
+        // Extract only the new part
+        new_text = current_clean.substr(last_clean.size());
+        new_text = trim(new_text);
+    } else if (current_clean != last_clean) {
+        // Text changed completely, return full text
+        new_text = current_clean;
+    }
+    
+    last_transcription_ = full_text;
+    
+    return new_text.empty() ? "" : new_text;
+}
+
 std::string RealtimeStreamContext::flush() {
     std::vector<float> audio_to_process;
     
@@ -180,7 +234,8 @@ std::string RealtimeStreamContext::flush() {
         last_process_time_ = std::chrono::steady_clock::now();
     }
     
-    return runInference(audio_to_process);
+    std::string full_transcription = runInference(audio_to_process);
+    return extractNewText(full_transcription);
 }
 
 void RealtimeStreamContext::reset() {
@@ -188,6 +243,7 @@ void RealtimeStreamContext::reset() {
     audio_buffer_.clear();
     pcmf32_old_.clear();
     prompt_tokens_.clear();
+    last_transcription_.clear();
     n_iter_ = 0;
     last_process_time_ = std::chrono::steady_clock::now();
 }
