@@ -42,7 +42,9 @@ if(EXISTS ${UWEBSOCKETS_DIR} AND EXISTS ${USOCKETS_DIR})
     endif()
     
     find_package(OpenSSL REQUIRED)
-    target_link_libraries(usockets PUBLIC OpenSSL::SSL OpenSSL::Crypto)
+    find_package(ZLIB REQUIRED)
+    
+    target_link_libraries(usockets PUBLIC OpenSSL::SSL OpenSSL::Crypto ZLIB::ZLIB)
     
     # Linux-specific libraries
     if(UNIX AND NOT APPLE)
